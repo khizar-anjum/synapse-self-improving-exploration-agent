@@ -6,7 +6,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-db.settings({ ignoreUndefinedProperties: true });
 
 // Ignore undefined properties to prevent Firestore errors
 db.settings({ ignoreUndefinedProperties: true });
