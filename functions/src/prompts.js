@@ -59,23 +59,28 @@ Question: ${q.question}
 SQL: ${q.sql || 'None'}
 Feedback: ${q.feedback || 'None'}
 Rating: ${q.rating || 'Not rated'}/5
+${q.retries > 0 ? `Auto-corrected errors (${q.retries}): ${q.retryErrors?.join('; ') || 'N/A'}` : ''}
 `).join('\n')}
 
 ## CURRENT KNOWLEDGE
 Patterns: ${currentMetadata.knownPatterns?.join('; ') || 'None'}
 
-## STRICT CRITERIA FOR LEARNINGS
-Only extract a learning if it meets ALL of these:
-1. The user gave EXPLICIT feedback or a correction (not just a follow-up question)
-2. The learning reveals something non-obvious about the data
-3. It would actually help with FUTURE queries (not just this one)
-4. It's NOT already in the current knowledge
+## CRITERIA FOR LEARNINGS
+Extract a learning if ANY of these apply:
+1. The user gave explicit feedback or a correction
+2. A query had to be auto-corrected due to SQL errors (this reveals BigQuery-specific patterns!)
+3. The learning reveals something non-obvious about the data or query patterns
+4. It would help avoid the same mistake in future queries
 
-DO NOT extract learnings from:
-- Simple clarifications or follow-up questions
-- Generic SQL patterns (e.g., "use GROUP BY for aggregations")
+GOOD learnings to extract:
+- BigQuery-specific SQL syntax issues (e.g., "Use / instead of DIV() for float division")
+- Column type mismatches or casting requirements
+- Table relationships discovered during the session
+- Data patterns the user clarified
+
+DO NOT extract:
+- Generic SQL knowledge everyone knows
 - Obvious column meanings that match their names
-- Sessions with only 1-2 interactions and no feedback
 
 ## TASK
 Extract 0-2 learnings MAX. If nothing meets the criteria, return empty array.

@@ -202,6 +202,9 @@ export const api = onRequest({
         response: response.raw,
         sql: response.sql,
         resultSummary: queryResult ? { success: queryResult.success, rowCount: queryResult.rowCount } : null,
+        // Include retry info for learning extraction
+        retries: queryResult?.retries || 0,
+        retryErrors: queryResult?.retryHistory?.map(r => r.error) || [],
         timestamp: new Date().toISOString(),
       };
 
