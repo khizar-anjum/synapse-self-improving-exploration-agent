@@ -2,6 +2,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { DataAgent } from './agent.js';
 import { config } from './config.js';
 import { listDatasets, listTables, getTableSchema } from './bigquery.js';
+import { logAgentInteraction, flushLogs } from './vertex-ai.js';
 import {
   getDatasetMetadata,
   getDatasetMetadataById,
@@ -19,7 +20,11 @@ import {
 /**
  * GET /api/datasets - List all BigQuery datasets and tables
  */
-export const api = onRequest({ region: 'us-central1', cors: true }, async (req, res) => {
+export const api = onRequest({
+  region: 'us-central1',
+  cors: true,
+  secrets: ['BRAINTRUST_API_KEY'], // Braintrust logging
+}, async (req, res) => {
   // Handle different path formats from Firebase Hosting rewrites
   let path = req.path;
   // Remove /api prefix if present
@@ -166,6 +171,20 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
 
       await updateSessionHistory(sessionId, historyEntry);
 
+      // Log to Braintrust
+      logAgentInteraction({
+        question: message,
+        datasetId: session.datasetId,
+        tables: metadata.tables?.map(t => t.tableName) || [],
+        sql: response.sql,
+        reasoning: response.reasoning,
+        explanation: response.explanation,
+        sessionId,
+        querySuccess: queryResult?.success,
+        rowCount: queryResult?.rowCount,
+      });
+      await flushLogs();
+
       return res.json({
         ...response,
         queryResult,
@@ -199,6 +218,19 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       };
 
       await updateSessionHistory(sessionId, historyEntry);
+
+      // Log feedback to Braintrust (with rating as score)
+      logAgentInteraction({
+        question: `[FEEDBACK] ${feedback}`,
+        datasetId: session.datasetId,
+        sql: response.sql,
+        reasoning: response.reasoning,
+        explanation: response.explanation,
+        sessionId,
+        feedback,
+        rating,
+      });
+      await flushLogs();
 
       return res.json(response);
     }
