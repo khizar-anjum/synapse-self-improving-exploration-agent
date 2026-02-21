@@ -315,20 +315,98 @@
 
     .chat-input {
       display: flex;
-      gap: 10px;
-      padding: 14px 16px;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 16px 14px;
       border-top: 1px solid rgba(139, 92, 246, 0.2);
       background: rgba(15, 10, 26, 0.5);
       flex-shrink: 0;
     }
 
-    .chat-input input {
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-input-row input {
       flex: 1;
       padding: 10px 14px;
     }
 
-    .chat-input button {
+    .chat-input-row button {
       padding: 10px 20px;
+    }
+
+    .live-transcript {
+      display: none;
+      font-size: 12px;
+      color: #f87171;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-style: italic;
+      letter-spacing: 0.01em;
+    }
+
+    .textarea-mic-wrap {
+      position: relative;
+    }
+
+    .textarea-mic-wrap textarea {
+      width: 100%;
+      padding-right: 44px;
+    }
+
+    .mic-btn-sm {
+      position: absolute !important;
+      bottom: 8px;
+      right: 8px;
+      width: 30px !important;
+      height: 30px !important;
+    }
+
+    .mic-btn-sm svg {
+      width: 14px !important;
+      height: 14px !important;
+    }
+
+    .mic-btn {
+      padding: 0 !important;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: rgba(51, 48, 75, 0.8);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .mic-btn:hover {
+      background: rgba(139, 92, 246, 0.25);
+      border-color: rgba(139, 92, 246, 0.6);
+    }
+
+    .mic-btn.recording {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.7);
+      animation: mic-pulse 1s ease-in-out infinite;
+    }
+
+    .mic-btn svg {
+      width: 18px;
+      height: 18px;
+      pointer-events: none;
+    }
+
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
     }
 
     /* Results Panel */
@@ -658,7 +736,17 @@
       </div>
       <div class="form-group">
         <label>Business Context (helps the agent understand your data)</label>
-        <textarea id="businessContext" rows="2" placeholder="e.g., NYC taxi trip data with pickup/dropoff info, fares, etc."></textarea>
+        <div class="textarea-mic-wrap">
+          <textarea id="businessContext" rows="2" placeholder="e.g., NYC taxi trip data with pickup/dropoff info, fares, etc."></textarea>
+          <button class="mic-btn mic-btn-sm" id="micBtnHome" onclick="toggleVoiceInput('businessContext','micBtnHome')" title="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="9" y1="22" x2="15" y2="22"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <button id="connectBtn" onclick="connect()">Start Exploring</button>
     </div>
@@ -677,8 +765,19 @@
           </div>
         </div>
         <div class="chat-input">
-          <input type="text" id="messageInput" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter') sendMessage()">
-          <button onclick="sendMessage()">Send</button>
+          <div id="liveTranscript" class="live-transcript"></div>
+          <div class="chat-input-row">
+            <input type="text" id="messageInput" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="mic-btn" id="micBtn" onclick="toggleVoiceInput('messageInput','micBtn')" title="Voice input">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2" width="6" height="12" rx="3"/>
+                <path d="M5 10a7 7 0 0 0 14 0"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="9" y1="22" x2="15" y2="22"/>
+              </svg>
+            </button>
+            <button onclick="sendMessage()">Send</button>
+          </div>
         </div>
       </div>
 
@@ -994,6 +1093,115 @@
         resetUI();
       }
     }
+
+    // ── Voice Input (Velma-2 STT Streaming) ───────────────────────────
+    const VELMA_KEY = '99cd3183-2f1d-4df9-e149-df207006fbbd';
+    let velmaSocket = null;
+    let micStream = null;
+    let micRecorder = null;
+    let isRecording = false;
+    let activeInputId = 'messageInput';
+    let activeBtnId = 'micBtn';
+    let velmaTranscript = '';
+
+    function toggleVoiceInput(inputId = 'messageInput', btnId = 'micBtn') {
+      if (isRecording) {
+        stopVoice();
+      } else {
+        startVoice(inputId, btnId);
+      }
+    }
+
+    async function startVoice(inputId, btnId) {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        activeInputId = inputId;
+        activeBtnId = btnId;
+        velmaTranscript = '';
+
+        const wsUrl = `wss://modulate-prototype-apis.com/api/velma-2-stt-streaming` +
+          `?api_key=${VELMA_KEY}&speaker_diarization=false&emotion_signal=false` +
+          `&accent_signal=false&pii_phi_tagging=false`;
+
+        velmaSocket = new WebSocket(wsUrl);
+
+        velmaSocket.onopen = () => {
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm';
+          micRecorder = new MediaRecorder(micStream, { mimeType });
+          micRecorder.ondataavailable = async e => {
+            if (e.data.size > 0 && velmaSocket.readyState === WebSocket.OPEN) {
+              velmaSocket.send(await e.data.arrayBuffer());
+            }
+          };
+          micRecorder.start(150);
+        };
+
+        velmaSocket.onmessage = e => {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'utterance' && msg.utterance?.text) {
+            const lang = (msg.utterance.language || '').toLowerCase();
+            if (lang && !lang.startsWith('en')) return; // ignore non-English utterances
+            velmaTranscript += (velmaTranscript ? ' ' : '') + msg.utterance.text.trim();
+            const input = document.getElementById(activeInputId);
+            input.value = velmaTranscript;
+            updateLiveDiv('🎤 ' + msg.utterance.text.trim());
+          } else if (msg.type === 'done') {
+            updateLiveDiv('');
+            setMicState('idle', activeBtnId);
+          } else if (msg.type === 'error') {
+            console.error('Velma STT error:', msg.error);
+            updateLiveDiv('');
+            setMicState('idle', activeBtnId);
+          }
+        };
+
+        velmaSocket.onerror = () => { stopVoice(); };
+        velmaSocket.onclose = () => { if (isRecording) { isRecording = false; setMicState('idle', activeBtnId); } };
+
+        isRecording = true;
+        setMicState('recording', btnId);
+      } catch (err) {
+        alert('Microphone error: ' + err.message);
+      }
+    }
+
+    function stopVoice() {
+      isRecording = false;
+      if (micRecorder && micRecorder.state !== 'inactive') micRecorder.stop();
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+      // empty text frame signals end of audio to Velma
+      if (velmaSocket && velmaSocket.readyState === WebSocket.OPEN) {
+        velmaSocket.send('');
+      }
+      setMicState('processing', activeBtnId);
+    }
+
+    function updateLiveDiv(text) {
+      const liveDiv = document.getElementById('liveTranscript');
+      if (!liveDiv) return;
+      if (text) {
+        liveDiv.textContent = text;
+        liveDiv.style.display = 'block';
+      } else {
+        liveDiv.style.display = 'none';
+      }
+    }
+
+    function setMicState(micState, btnId = 'micBtn') {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.classList.remove('recording');
+      if (micState === 'recording') {
+        btn.classList.add('recording');
+        btn.title = 'Stop recording';
+      } else if (micState === 'processing') {
+        btn.title = 'Transcribing...';
+      } else {
+        btn.title = 'Voice input';
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────
 
     function resetUI() {
       state.sessionId = null;
