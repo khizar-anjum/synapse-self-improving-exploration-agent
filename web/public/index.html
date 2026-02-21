@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Synapse - Self-Improving Data Agent</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -329,6 +330,58 @@
     .message code {
       font-family: 'Monaco', 'Menlo', monospace;
       color: #67e8f9;
+    }
+
+    .message p {
+      margin-bottom: 8px;
+    }
+
+    .message p:last-child {
+      margin-bottom: 0;
+    }
+
+    .message ul, .message ol {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .message li {
+      margin-bottom: 4px;
+    }
+
+    .message h1, .message h2, .message h3, .message h4 {
+      margin: 12px 0 8px;
+      color: #c4b5fd;
+    }
+
+    .message h1 { font-size: 18px; }
+    .message h2 { font-size: 16px; }
+    .message h3 { font-size: 14px; }
+
+    .message strong {
+      color: #e2e8f0;
+    }
+
+    .message blockquote {
+      border-left: 3px solid #8b5cf6;
+      padding-left: 12px;
+      margin: 8px 0;
+      color: #94a3b8;
+    }
+
+    .message table {
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+
+    .message th, .message td {
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      padding: 6px 10px;
+    }
+
+    .message th {
+      background: rgba(139, 92, 246, 0.1);
     }
 
     .chat-input {
@@ -986,11 +1039,11 @@
         }
 
         let content = '';
-        if (data.reasoning) content += `<strong>Reasoning:</strong> ${data.reasoning}<br><br>`;
-        if (data.sql) content += `<pre><code>${data.sql}</code></pre>`;
-        if (data.explanation) content += `${data.explanation}`;
+        if (data.reasoning) content += `**Reasoning:** ${data.reasoning}\n\n`;
+        if (data.sql) content += `\`\`\`sql\n${data.sql}\n\`\`\`\n\n`;
+        if (data.explanation) content += data.explanation;
 
-        addMessage(content, 'agent');
+        addMessage(content, 'agent', true);
 
         if (data.queryResult) {
           showResults(data.queryResult);
@@ -1001,10 +1054,16 @@
       }
     }
 
-    function addMessage(content, type) {
+    function addMessage(content, type, isMarkdown = false) {
       const div = document.createElement('div');
       div.className = `message ${type}`;
-      div.innerHTML = content;
+
+      // Parse markdown for agent messages
+      if (type === 'agent' && isMarkdown && typeof marked !== 'undefined') {
+        div.innerHTML = marked.parse(content);
+      } else {
+        div.innerHTML = content;
+      }
 
       const container = document.getElementById('chatMessages');
       container.appendChild(div);
@@ -1077,10 +1136,10 @@
         const data = await res.json();
 
         let content = '';
-        if (data.sql) content += `<strong>Refined query:</strong><pre><code>${data.sql}</code></pre>`;
+        if (data.sql) content += `**Refined query:**\n\`\`\`sql\n${data.sql}\n\`\`\`\n\n`;
         if (data.explanation) content += data.explanation;
 
-        addMessage(content || 'Thanks for the feedback!', 'agent');
+        addMessage(content || 'Thanks for the feedback!', 'agent', true);
         document.getElementById('feedbackInput').value = '';
       } catch (error) {
         addMessage('Error: ' + error.message, 'agent');
