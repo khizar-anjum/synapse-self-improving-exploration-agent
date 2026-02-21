@@ -86,10 +86,10 @@ export const api = onRequest({
         if (schemaResult.success) {
           tableSchemas.push({
             tableName: table.id,
-            type: table.type,
-            schema: schemaResult.schema,
-            rowCount: schemaResult.numRows,
-            description: schemaResult.description,
+            type: table.type || 'TABLE',
+            schema: schemaResult.schema || [],
+            rowCount: schemaResult.numRows || '0',
+            description: schemaResult.description || '',
           });
         }
       }

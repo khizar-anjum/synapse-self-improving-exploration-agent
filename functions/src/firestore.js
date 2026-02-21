@@ -7,6 +7,9 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Ignore undefined properties to prevent Firestore errors
+db.settings({ ignoreUndefinedProperties: true });
+
 /**
  * Get dataset metadata by datasetId and tableId
  */
