@@ -1317,7 +1317,6 @@
     }
 
     // ── Voice Input (Velma-2 STT Streaming) ───────────────────────────
-    const VELMA_KEY = '99cd3183-2f1d-4df9-e149-df207006fbbd';
     let velmaSocket = null;
     let micStream = null;
     let micRecorder = null;
@@ -1341,15 +1340,22 @@
         activeBtnId = btnId;
         velmaTranscript = '';
 
-        const wsUrl = `wss://modulate-prototype-apis.com/api/velma-2-stt-streaming` +
-          `?api_key=${VELMA_KEY}&speaker_diarization=false&emotion_signal=false` +
-          `&accent_signal=false&pii_phi_tagging=false`;
+        // Fetch WebSocket URL from backend (keeps API key server-side)
+        updateLiveDiv('Connecting...');
+        const urlRes = await fetch('/api/velma-url');
+        const urlData = await urlRes.json();
+        if (!urlData.url) {
+          throw new Error(urlData.error || 'Failed to get voice URL');
+        }
 
-        velmaSocket = new WebSocket(wsUrl);
+        velmaSocket = new WebSocket(urlData.url);
 
         velmaSocket.onopen = () => {
+          console.log('Velma WebSocket connected');
+          updateLiveDiv('🎤 Listening...');
           const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus' : 'audio/webm';
+          console.log('Using mimeType:', mimeType);
           micRecorder = new MediaRecorder(micStream, { mimeType });
           micRecorder.ondataavailable = async e => {
             if (e.data.size > 0 && velmaSocket.readyState === WebSocket.OPEN) {
@@ -1360,6 +1366,7 @@
         };
 
         velmaSocket.onmessage = e => {
+          console.log('Velma message:', e.data);
           const msg = JSON.parse(e.data);
           if (msg.type === 'utterance' && msg.utterance?.text) {
             const lang = (msg.utterance.language || '').toLowerCase();
@@ -1373,12 +1380,16 @@
             setMicState('idle', activeBtnId);
           } else if (msg.type === 'error') {
             console.error('Velma STT error:', msg.error);
-            updateLiveDiv('');
+            updateLiveDiv('Error: ' + (msg.error || 'Unknown'));
             setMicState('idle', activeBtnId);
           }
         };
 
-        velmaSocket.onerror = () => { stopVoice(); };
+        velmaSocket.onerror = (err) => {
+          console.error('WebSocket error:', err);
+          updateLiveDiv('Connection error');
+          stopVoice();
+        };
         velmaSocket.onclose = () => { if (isRecording) { isRecording = false; setMicState('idle', activeBtnId); } };
 
         isRecording = true;

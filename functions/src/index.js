@@ -25,7 +25,7 @@ import {
 export const api = onRequest({
   region: 'us-central1',
   cors: true,
-  secrets: ['BRAINTRUST_API_KEY'], // Braintrust logging
+  secrets: ['BRAINTRUST_API_KEY', 'VELMA_KEY'],
 }, async (req, res) => {
   // Handle different path formats from Firebase Hosting rewrites
   let path = req.path;
@@ -47,6 +47,18 @@ export const api = onRequest({
   console.log('Request:', method, req.path, '-> parsed path:', path);
 
   try {
+    // GET /api/velma-url - Get Velma STT WebSocket URL (keeps API key server-side)
+    if (path === '/velma-url' && method === 'GET') {
+      const velmaKey = process.env.VELMA_KEY;
+      if (!velmaKey) {
+        return res.status(500).json({ error: 'VELMA_KEY not configured' });
+      }
+      const wsUrl = `wss://modulate-prototype-apis.com/api/velma-2-stt-streaming` +
+        `?api_key=${velmaKey}&speaker_diarization=false&emotion_signal=false` +
+        `&accent_signal=false&pii_phi_tagging=false`;
+      return res.json({ url: wsUrl });
+    }
+
     // GET /api/datasets
     if (path === '/datasets' && method === 'GET') {
       const datasets = await listDatasets();
