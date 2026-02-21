@@ -916,7 +916,10 @@
       <div class="history-content">
         <div class="history-header">
           <h3>Learnings History</h3>
-          <button class="history-close" onclick="closeHistory()">Close</button>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn-reject" onclick="clearAllLearnings()">Clear All</button>
+            <button class="history-close" onclick="closeHistory()">Close</button>
+          </div>
         </div>
         <div id="historyContent">
           <div class="history-empty">Loading...</div>
@@ -1269,6 +1272,36 @@
 
     function closeHistory() {
       document.getElementById('historyPanel').classList.remove('active');
+    }
+
+    async function clearAllLearnings() {
+      const datasetId = state.datasetId || document.getElementById('datasetSelect').value;
+
+      if (!datasetId) {
+        alert('Select a dataset first');
+        return;
+      }
+
+      if (!confirm('Delete all learnings for this dataset? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/learnings?datasetId=${datasetId}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert(`Cleared ${data.deleted} learnings`);
+          document.getElementById('historyContent').innerHTML =
+            '<div class="history-empty">No learnings recorded yet for this dataset.</div>';
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
     }
   </script>
 </body>
