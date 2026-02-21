@@ -828,6 +828,114 @@
       color: #64748b;
     }
 
+    /* How It Works Section */
+    .how-it-works {
+      margin: 30px 0;
+      padding: 30px;
+      background: rgba(30, 27, 46, 0.6);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .how-it-works h2 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #c4b5fd 0%, #67e8f9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .how-it-works .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    .flow-diagram {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+
+    .flow-step {
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 10px;
+      padding: 14px 18px;
+      text-align: center;
+      min-width: 120px;
+    }
+
+    .flow-step-icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    .flow-step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #c4b5fd;
+    }
+
+    .flow-arrow {
+      color: #8b5cf6;
+      font-size: 20px;
+    }
+
+    .integrations {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .integration-card {
+      background: rgba(15, 10, 26, 0.6);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .integration-card h3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+    }
+
+    .integration-card h3 .badge {
+      font-size: 10px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .integration-card p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .integration-card ul {
+      margin-top: 10px;
+      padding-left: 18px;
+      font-size: 12px;
+      color: #a78bfa;
+    }
+
+    .integration-card li {
+      margin-bottom: 4px;
+    }
+
     /* Loading */
     .loading {
       display: inline-block;
@@ -910,6 +1018,99 @@
         <div class="feature">
           <div class="feature-icon">&#x2713;</div>
           <span>Owner-Approved Learnings</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- How It Works Section -->
+    <div class="how-it-works" id="howItWorks">
+      <h2>How It Works</h2>
+      <p class="subtitle">A self-improving feedback loop powered by AI</p>
+
+      <!-- Flow Diagram -->
+      <div class="flow-diagram">
+        <div class="flow-step">
+          <div class="flow-step-icon">&#x1F3A4;</div>
+          <div class="flow-step-label">Voice/Text Query</div>
+        </div>
+        <div class="flow-arrow">&#x2192;</div>
+        <div class="flow-step">
+          <div class="flow-step-icon">&#x1F9E0;</div>
+          <div class="flow-step-label">AI Generates SQL</div>
+        </div>
+        <div class="flow-arrow">&#x2192;</div>
+        <div class="flow-step">
+          <div class="flow-step-icon">&#x1F4CA;</div>
+          <div class="flow-step-label">Execute & Show</div>
+        </div>
+        <div class="flow-arrow">&#x2192;</div>
+        <div class="flow-step">
+          <div class="flow-step-icon">&#x1F4DD;</div>
+          <div class="flow-step-label">User Feedback</div>
+        </div>
+        <div class="flow-arrow">&#x2192;</div>
+        <div class="flow-step">
+          <div class="flow-step-icon">&#x2705;</div>
+          <div class="flow-step-label">Extract Learnings</div>
+        </div>
+      </div>
+
+      <!-- Integrations -->
+      <div class="integrations">
+        <div class="integration-card">
+          <h3>
+            <span>&#x1F9E0;</span>
+            Gemini 2.0 Flash
+            <span class="badge">LLM</span>
+          </h3>
+          <p>Powered by Google's Gemini model via Vertex AI for natural language to SQL conversion with context-aware reasoning.</p>
+          <ul>
+            <li>Multi-table schema understanding</li>
+            <li>Auto-retry on SQL errors (self-correcting)</li>
+            <li>Learns from approved patterns</li>
+          </ul>
+        </div>
+
+        <div class="integration-card">
+          <h3>
+            <span>&#x1F4CA;</span>
+            Braintrust
+            <span class="badge">Observability</span>
+          </h3>
+          <p>Full observability and logging of all agent interactions for evaluation and improvement.</p>
+          <ul>
+            <li>Logs every query, response, and feedback</li>
+            <li>Tracks user ratings (1-5 scale)</li>
+            <li>Enables offline evaluation & debugging</li>
+          </ul>
+        </div>
+
+        <div class="integration-card">
+          <h3>
+            <span>&#x1F3A4;</span>
+            Modulate AI (Velma-2)
+            <span class="badge">Voice</span>
+          </h3>
+          <p>Real-time speech-to-text streaming for hands-free data exploration using Velma-2 STT.</p>
+          <ul>
+            <li>Live transcription as you speak</li>
+            <li>Low-latency WebSocket streaming</li>
+            <li>Natural voice queries</li>
+          </ul>
+        </div>
+
+        <div class="integration-card">
+          <h3>
+            <span>&#x1F504;</span>
+            Self-Improving Loop
+            <span class="badge">Core</span>
+          </h3>
+          <p>The agent learns from every session. When you end a session, learnings are extracted and presented for owner approval.</p>
+          <ul>
+            <li>Extracts patterns from feedback & errors</li>
+            <li>Owner approves/rejects learnings</li>
+            <li>Approved learnings improve future queries</li>
+          </ul>
         </div>
       </div>
     </div>
