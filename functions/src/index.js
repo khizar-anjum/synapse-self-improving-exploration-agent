@@ -150,15 +150,40 @@ export const api = onRequest({
       agent.initializeChat(session.history || []);
 
       // Ask the question
-      const response = await agent.ask(message);
+      let response = await agent.ask(message);
 
-      // Optionally execute the query
+      // Optionally execute the query with auto-retry on errors
       let queryResult = null;
+      const maxRetries = 3;
+      let retryCount = 0;
+
       if (execute && response.sql) {
         queryResult = await agent.executeQuery(response.sql);
+
+        // Auto-retry loop: if query fails, send error to agent and retry
+        while (!queryResult.success && retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Query failed, auto-retry ${retryCount}/${maxRetries}`);
+
+          // Send error to agent for correction
+          const errorPrompt = `The query failed with this error:\n\n${queryResult.error}\n\nPlease fix the SQL and try again.`;
+          response = await agent.ask(errorPrompt);
+
+          if (response.sql) {
+            queryResult = await agent.executeQuery(response.sql);
+          } else {
+            break; // Agent didn't provide new SQL
+          }
+        }
+
         // Serialize BigQuery results to plain JSON for Firestore
         if (queryResult && queryResult.rows) {
           queryResult.rows = JSON.parse(JSON.stringify(queryResult.rows));
+        }
+
+        // Add retry info to result
+        if (retryCount > 0) {
+          queryResult.retries = retryCount;
         }
       }
 
