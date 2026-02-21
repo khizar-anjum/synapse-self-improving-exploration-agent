@@ -1,0 +1,16 @@
+{
+  "name": "taxi-agent",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "firebase deploy",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "emulate": "firebase emulators:start",
+    "setup": "cd functions && npm install"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^8.1.1",
+    "@google-cloud/storage": "^7.19.0"
+  }
+}

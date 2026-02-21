@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Firebase
+.firebase/
+*-debug.log
+firebase-debug.log
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Service account keys (NEVER commit these)
+**/service-account*.json
+**/credentials*.json
+**/*-key.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
