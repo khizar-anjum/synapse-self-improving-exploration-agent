@@ -55,7 +55,7 @@ export const api = onRequest({
       }
       const wsUrl = `wss://modulate-prototype-apis.com/api/velma-2-stt-streaming` +
         `?api_key=${velmaKey}&speaker_diarization=false&emotion_signal=false` +
-        `&accent_signal=false&pii_phi_tagging=false`;
+        `&accent_signal=false&pii_phi_tagging=false&language=en`;
       return res.json({ url: wsUrl });
     }
 

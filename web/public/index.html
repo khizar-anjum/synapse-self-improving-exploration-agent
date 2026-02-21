@@ -1370,7 +1370,8 @@
           const msg = JSON.parse(e.data);
           if (msg.type === 'utterance' && msg.utterance?.text) {
             const lang = (msg.utterance.language || '').toLowerCase();
-            if (lang && !lang.startsWith('en')) return; // ignore non-English utterances
+            // Allow English, unknown, or empty language
+            if (lang && lang !== 'unknown' && !lang.startsWith('en')) return;
             velmaTranscript += (velmaTranscript ? ' ' : '') + msg.utterance.text.trim();
             const input = document.getElementById(activeInputId);
             input.value = velmaTranscript;
