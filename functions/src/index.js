@@ -2,6 +2,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { DataAgent } from './agent.js';
 import { config } from './config.js';
 import { listDatasets, listTables, getTableSchema } from './bigquery.js';
+import { logAgentInteraction, flushLogs } from './vertex-ai.js';
 import {
   getDatasetMetadata,
   getDatasetMetadataById,
@@ -12,6 +13,8 @@ import {
   updateSessionHistory,
   saveLearning,
   getPendingLearnings,
+  getAllLearnings,
+  deleteAllLearnings,
   updateLearningStatus,
   applyLearningToDataset,
 } from './firestore.js';
@@ -19,7 +22,11 @@ import {
 /**
  * GET /api/datasets - List all BigQuery datasets and tables
  */
-export const api = onRequest({ region: 'us-central1', cors: true }, async (req, res) => {
+export const api = onRequest({
+  region: 'us-central1',
+  cors: true,
+  secrets: ['BRAINTRUST_API_KEY'], // Braintrust logging
+}, async (req, res) => {
   // Handle different path formats from Firebase Hosting rewrites
   let path = req.path;
   // Remove /api prefix if present
@@ -81,10 +88,10 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         if (schemaResult.success) {
           tableSchemas.push({
             tableName: table.id,
-            type: table.type ?? null,
-            schema: schemaResult.schema,
-            rowCount: schemaResult.numRows ?? null,
-            description: schemaResult.description ?? null,
+            type: table.type || 'TABLE',
+            schema: schemaResult.schema || [],
+            rowCount: schemaResult.numRows || '0',
+            description: schemaResult.description || '',
           });
         }
       }
@@ -143,15 +150,49 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       agent.initializeChat(session.history || []);
 
       // Ask the question
-      const response = await agent.ask(message);
+      let response = await agent.ask(message);
 
-      // Optionally execute the query
+      // Optionally execute the query with auto-retry on errors
       let queryResult = null;
+      const maxRetries = 3;
+      let retryCount = 0;
+      const retryHistory = []; // Track all attempts for user visibility
+
       if (execute && response.sql) {
         queryResult = await agent.executeQuery(response.sql);
+
+        // Auto-retry loop: if query fails, send error to agent and retry
+        while (!queryResult.success && retryCount < maxRetries) {
+          // Record the failed attempt
+          retryHistory.push({
+            attempt: retryCount + 1,
+            sql: response.sql,
+            error: queryResult.error,
+          });
+
+          retryCount++;
+          console.log(`Query failed, auto-retry ${retryCount}/${maxRetries}`);
+
+          // Send error to agent for correction
+          const errorPrompt = `The query failed with this error:\n\n${queryResult.error}\n\nPlease fix the SQL and try again.`;
+          response = await agent.ask(errorPrompt);
+
+          if (response.sql) {
+            queryResult = await agent.executeQuery(response.sql);
+          } else {
+            break; // Agent didn't provide new SQL
+          }
+        }
+
         // Serialize BigQuery results to plain JSON for Firestore
         if (queryResult && queryResult.rows) {
           queryResult.rows = JSON.parse(JSON.stringify(queryResult.rows));
+        }
+
+        // Add retry info to result
+        if (retryCount > 0) {
+          queryResult.retries = retryCount;
+          queryResult.retryHistory = retryHistory;
         }
       }
 
@@ -161,10 +202,27 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         response: response.raw,
         sql: response.sql,
         resultSummary: queryResult ? { success: queryResult.success, rowCount: queryResult.rowCount } : null,
+        // Include retry info for learning extraction
+        retries: queryResult?.retries || 0,
+        retryErrors: queryResult?.retryHistory?.map(r => r.error) || [],
         timestamp: new Date().toISOString(),
       };
 
       await updateSessionHistory(sessionId, historyEntry);
+
+      // Log to Braintrust
+      logAgentInteraction({
+        question: message,
+        datasetId: session.datasetId,
+        tables: metadata.tables?.map(t => t.tableName) || [],
+        sql: response.sql,
+        reasoning: response.reasoning,
+        explanation: response.explanation,
+        sessionId,
+        querySuccess: queryResult?.success,
+        rowCount: queryResult?.rowCount,
+      });
+      await flushLogs();
 
       return res.json({
         ...response,
@@ -199,6 +257,19 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       };
 
       await updateSessionHistory(sessionId, historyEntry);
+
+      // Log feedback to Braintrust (with rating as score)
+      logAgentInteraction({
+        question: `[FEEDBACK] ${feedback}`,
+        datasetId: session.datasetId,
+        sql: response.sql,
+        reasoning: response.reasoning,
+        explanation: response.explanation,
+        sessionId,
+        feedback,
+        rating,
+      });
+      await flushLogs();
 
       return res.json(response);
     }
@@ -236,6 +307,20 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       const { datasetId } = req.query;
       const learnings = await getPendingLearnings(datasetId);
       return res.json({ learnings });
+    }
+
+    // GET /api/learnings/history?datasetId=X - Get all learnings history
+    if (path === '/learnings/history' && method === 'GET') {
+      const { datasetId } = req.query;
+      const learnings = await getAllLearnings(datasetId);
+      return res.json({ learnings });
+    }
+
+    // DELETE /api/learnings?datasetId=X - Delete all learnings for a dataset
+    if (path === '/learnings' && method === 'DELETE') {
+      const { datasetId } = req.query;
+      const count = await deleteAllLearnings(datasetId);
+      return res.json({ success: true, deleted: count });
     }
 
     // POST /api/learnings/:id/approve - Approve a learning

@@ -1,4 +1,4 @@
-import { startChat, generate } from './vertex-ai.js';
+import { startChat, generate, logAgentInteraction, flushLogs } from './vertex-ai.js';
 import { runQuery } from './bigquery.js';
 import { buildSystemPrompt, buildLearningExtractionPrompt } from './prompts.js';
 

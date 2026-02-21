@@ -50,7 +50,7 @@ EXPLANATION: <plain English explanation>
 }
 
 export function buildLearningExtractionPrompt(sessionHistory, currentMetadata) {
-  return `Analyze this session and extract learnings for future sessions.
+  return `Analyze this session and extract ONLY the most valuable learnings.
 
 ## SESSION HISTORY
 ${sessionHistory.map((q, i) => `
@@ -59,18 +59,37 @@ Question: ${q.question}
 SQL: ${q.sql || 'None'}
 Feedback: ${q.feedback || 'None'}
 Rating: ${q.rating || 'Not rated'}/5
+${q.retries > 0 ? `Auto-corrected errors (${q.retries}): ${q.retryErrors?.join('; ') || 'N/A'}` : ''}
 `).join('\n')}
 
 ## CURRENT KNOWLEDGE
 Patterns: ${currentMetadata.knownPatterns?.join('; ') || 'None'}
 
+## CRITERIA FOR LEARNINGS
+Extract a learning if ANY of these apply:
+1. The user gave explicit feedback or a correction
+2. A query had to be auto-corrected due to SQL errors (this reveals BigQuery-specific patterns!)
+3. The learning reveals something non-obvious about the data or query patterns
+4. It would help avoid the same mistake in future queries
+
+GOOD learnings to extract:
+- BigQuery-specific SQL syntax issues (e.g., "Use / instead of DIV() for float division")
+- Column type mismatches or casting requirements
+- Table relationships discovered during the session
+- Data patterns the user clarified
+
+DO NOT extract:
+- Generic SQL knowledge everyone knows
+- Obvious column meanings that match their names
+
 ## TASK
-Extract NEW learnings. Respond in JSON:
+Extract 0-2 learnings MAX. If nothing meets the criteria, return empty array.
+Respond in JSON:
 {
   "learnings": [
     {
       "type": "PATTERN" | "COLUMN_INSIGHT" | "MISTAKE",
-      "content": "One clear sentence",
+      "content": "One specific, actionable sentence",
       "confidence": 0.0-1.0
     }
   ]

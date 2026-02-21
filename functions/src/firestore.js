@@ -8,6 +8,9 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
+// Ignore undefined properties to prevent Firestore errors
+db.settings({ ignoreUndefinedProperties: true });
+
 /**
  * Get dataset metadata by datasetId and tableId
  */
@@ -119,6 +122,19 @@ export async function getPendingLearnings(datasetDocId) {
 }
 
 /**
+ * Get all learnings for a dataset (approved, rejected, pending)
+ */
+export async function getAllLearnings(datasetDocId) {
+  const snapshot = await db.collection('learnings')
+    .where('datasetId', '==', datasetDocId)
+    .orderBy('createdAt', 'desc')
+    .limit(50)
+    .get();
+
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+/**
  * Approve or reject a learning
  */
 export async function updateLearningStatus(learningId, status) {
@@ -126,6 +142,35 @@ export async function updateLearningStatus(learningId, status) {
     status,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+}
+
+/**
+ * Delete all learnings for a dataset and clear patterns from metadata
+ */
+export async function deleteAllLearnings(datasetDocId) {
+  // Delete all learning documents
+  const snapshot = await db.collection('learnings')
+    .where('datasetId', '==', datasetDocId)
+    .get();
+
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+  if (snapshot.docs.length > 0) {
+    await batch.commit();
+  }
+
+  // Also clear knownPatterns and commonMistakes from dataset metadata (if exists)
+  const datasetRef = db.collection('datasets').doc(datasetDocId);
+  const datasetDoc = await datasetRef.get();
+  if (datasetDoc.exists) {
+    await datasetRef.update({
+      knownPatterns: [],
+      commonMistakes: [],
+    });
+  }
+
+  return snapshot.docs.length;
 }
 
 /**
