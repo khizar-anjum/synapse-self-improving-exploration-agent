@@ -50,7 +50,7 @@ EXPLANATION: <plain English explanation>
 }
 
 export function buildLearningExtractionPrompt(sessionHistory, currentMetadata) {
-  return `Analyze this session and extract learnings for future sessions.
+  return `Analyze this session and extract ONLY the most valuable learnings.
 
 ## SESSION HISTORY
 ${sessionHistory.map((q, i) => `
@@ -64,18 +64,32 @@ Rating: ${q.rating || 'Not rated'}/5
 ## CURRENT KNOWLEDGE
 Patterns: ${currentMetadata.knownPatterns?.join('; ') || 'None'}
 
+## STRICT CRITERIA FOR LEARNINGS
+Only extract a learning if it meets ALL of these:
+1. The user gave EXPLICIT feedback or a correction (not just a follow-up question)
+2. The learning reveals something non-obvious about the data
+3. It would actually help with FUTURE queries (not just this one)
+4. It's NOT already in the current knowledge
+
+DO NOT extract learnings from:
+- Simple clarifications or follow-up questions
+- Generic SQL patterns (e.g., "use GROUP BY for aggregations")
+- Obvious column meanings that match their names
+- Sessions with only 1-2 interactions and no feedback
+
 ## TASK
-Extract NEW learnings. Respond in JSON:
+Extract 0-2 learnings MAX. If nothing meets the criteria, return empty array.
+Respond in JSON:
 {
   "learnings": [
     {
       "type": "PATTERN" | "COLUMN_INSIGHT" | "MISTAKE",
-      "content": "One clear sentence",
+      "content": "One specific, actionable sentence",
       "confidence": 0.0-1.0
     }
   ]
 }
 
-Only include learnings with confidence >= 0.7.
+Only include learnings with confidence >= 0.85.
 `;
 }

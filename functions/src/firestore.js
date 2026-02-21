@@ -121,6 +121,19 @@ export async function getPendingLearnings(datasetDocId) {
 }
 
 /**
+ * Get all learnings for a dataset (approved, rejected, pending)
+ */
+export async function getAllLearnings(datasetDocId) {
+  const snapshot = await db.collection('learnings')
+    .where('datasetId', '==', datasetDocId)
+    .orderBy('createdAt', 'desc')
+    .limit(50)
+    .get();
+
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+/**
  * Approve or reject a learning
  */
 export async function updateLearningStatus(learningId, status) {

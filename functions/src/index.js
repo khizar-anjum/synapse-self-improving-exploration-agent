@@ -13,6 +13,7 @@ import {
   updateSessionHistory,
   saveLearning,
   getPendingLearnings,
+  getAllLearnings,
   updateLearningStatus,
   applyLearningToDataset,
 } from './firestore.js';
@@ -267,6 +268,13 @@ export const api = onRequest({
     if (path === '/learnings' && method === 'GET') {
       const { datasetId } = req.query;
       const learnings = await getPendingLearnings(datasetId);
+      return res.json({ learnings });
+    }
+
+    // GET /api/learnings/history?datasetId=X - Get all learnings history
+    if (path === '/learnings/history' && method === 'GET') {
+      const { datasetId } = req.query;
+      const learnings = await getAllLearnings(datasetId);
       return res.json({ learnings });
     }
 

@@ -1,12 +1,22 @@
 import { VertexAI } from '@google-cloud/vertexai';
-import { initLogger, wrapTraced } from 'braintrust';
+import { initLogger } from 'braintrust';
 import { config } from './config.js';
 
 // Initialize Braintrust logger (uses BRAINTRUST_API_KEY env var)
-const logger = initLogger({
-  projectName: 'synapse-data-agent',
-  asyncFlush: true,
-});
+let logger = null;
+try {
+  const apiKey = process.env.BRAINTRUST_API_KEY;
+  console.log('Braintrust API key present:', !!apiKey, apiKey ? `(${apiKey.substring(0, 8)}...)` : '');
+
+  logger = initLogger({
+    projectName: 'synapse-data-agent',
+    apiKey: apiKey, // Explicitly pass the API key
+    asyncFlush: true,
+  });
+  console.log('Braintrust logger initialized successfully');
+} catch (err) {
+  console.error('Failed to initialize Braintrust logger:', err);
+}
 
 const vertexAI = new VertexAI({
   project: config.projectId,
@@ -23,9 +33,9 @@ const generativeModel = vertexAI.getGenerativeModel({
 });
 
 /**
- * Wrapped generate function with Braintrust logging
+ * Generate function with Braintrust logging
  */
-export const generate = wrapTraced(async function generate(prompt) {
+export async function generate(prompt) {
   const startTime = Date.now();
 
   const result = await generativeModel.generateContent(prompt);
@@ -34,21 +44,27 @@ export const generate = wrapTraced(async function generate(prompt) {
   const endTime = Date.now();
 
   // Log to Braintrust
-  logger.log({
-    input: prompt,
-    output: responseText,
-    metadata: {
-      model: config.model,
-      latencyMs: endTime - startTime,
-      type: 'generate',
-    },
-  });
+  if (logger) {
+    try {
+      logger.log({
+        input: prompt,
+        output: responseText,
+        metadata: {
+          model: config.model,
+          latencyMs: endTime - startTime,
+          type: 'generate',
+        },
+      });
+    } catch (err) {
+      console.error('Failed to log generate to Braintrust:', err);
+    }
+  }
 
   return responseText;
-}, { name: 'generate' });
+}
 
 /**
- * Start a chat session with Braintrust tracing
+ * Start a chat session with Braintrust logging
  */
 export function startChat(history = []) {
   const chat = generativeModel.startChat({ history });
@@ -56,7 +72,7 @@ export function startChat(history = []) {
   // Wrap sendMessage to log each turn
   const originalSendMessage = chat.sendMessage.bind(chat);
 
-  chat.sendMessage = wrapTraced(async function sendMessage(message) {
+  chat.sendMessage = async function sendMessage(message) {
     const startTime = Date.now();
 
     const result = await originalSendMessage(message);
@@ -65,19 +81,25 @@ export function startChat(history = []) {
     const endTime = Date.now();
 
     // Log to Braintrust
-    logger.log({
-      input: message,
-      output: responseText,
-      metadata: {
-        model: config.model,
-        latencyMs: endTime - startTime,
-        type: 'chat',
-        historyLength: history.length,
-      },
-    });
+    if (logger) {
+      try {
+        logger.log({
+          input: message,
+          output: responseText,
+          metadata: {
+            model: config.model,
+            latencyMs: endTime - startTime,
+            type: 'chat',
+            historyLength: history.length,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to log chat to Braintrust:', err);
+      }
+    }
 
     return result;
-  }, { name: 'chat.sendMessage' });
+  };
 
   return chat;
 }
@@ -86,38 +108,60 @@ export function startChat(history = []) {
  * Log a complete agent interaction (question -> SQL -> result -> feedback)
  */
 export function logAgentInteraction(data) {
-  logger.log({
-    input: {
-      question: data.question,
-      datasetId: data.datasetId,
-      tables: data.tables,
-    },
-    output: {
-      sql: data.sql,
-      reasoning: data.reasoning,
-      explanation: data.explanation,
-    },
-    expected: data.feedback ? {
-      feedback: data.feedback,
-      rating: data.rating,
-    } : undefined,
-    scores: data.rating ? {
-      userRating: data.rating / 5, // Normalize to 0-1
-    } : undefined,
-    metadata: {
-      sessionId: data.sessionId,
-      querySuccess: data.querySuccess,
-      rowCount: data.rowCount,
-      latencyMs: data.latencyMs,
-    },
-  });
+  if (!logger) {
+    console.warn('Braintrust logger not initialized, skipping log');
+    return;
+  }
+
+  try {
+    console.log('Logging to Braintrust:', { question: data.question, sql: data.sql?.substring(0, 50) });
+    logger.log({
+      input: {
+        question: data.question,
+        datasetId: data.datasetId,
+        tables: data.tables,
+      },
+      output: {
+        sql: data.sql,
+        reasoning: data.reasoning,
+        explanation: data.explanation,
+      },
+      expected: data.feedback ? {
+        feedback: data.feedback,
+        rating: data.rating,
+      } : undefined,
+      scores: data.rating ? {
+        userRating: data.rating / 5, // Normalize to 0-1
+      } : undefined,
+      metadata: {
+        sessionId: data.sessionId,
+        querySuccess: data.querySuccess,
+        rowCount: data.rowCount,
+        latencyMs: data.latencyMs,
+      },
+    });
+    console.log('Braintrust log queued');
+  } catch (err) {
+    console.error('Failed to log to Braintrust:', err);
+  }
 }
 
 /**
  * Flush logs (call before function exits)
  */
 export async function flushLogs() {
-  await logger.flush();
+  if (!logger) {
+    console.warn('Braintrust logger not initialized, skipping flush');
+    return;
+  }
+
+  try {
+    console.log('Flushing Braintrust logs...');
+    await logger.flush();
+    console.log('Braintrust logs flushed successfully');
+  } catch (err) {
+    console.error('Failed to flush Braintrust logs:', err);
+  }
 }
 
 // Export model for direct access if needed
