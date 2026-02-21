@@ -6,6 +6,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 /**
  * Get dataset metadata by datasetId and tableId

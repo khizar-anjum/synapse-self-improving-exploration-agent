@@ -40,7 +40,7 @@ export async function getTableSchema(datasetId, tableId) {
       success: true,
       schema: metadata.schema.fields,
       numRows: metadata.numRows,
-      description: metadata.description,
+      description: metadata.description ?? null,
     };
   } catch (error) {
     return {

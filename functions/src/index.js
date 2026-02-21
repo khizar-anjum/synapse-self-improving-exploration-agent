@@ -81,10 +81,10 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         if (schemaResult.success) {
           tableSchemas.push({
             tableName: table.id,
-            type: table.type,
+            type: table.type ?? null,
             schema: schemaResult.schema,
-            rowCount: schemaResult.numRows,
-            description: schemaResult.description,
+            rowCount: schemaResult.numRows ?? null,
+            description: schemaResult.description ?? null,
           });
         }
       }
