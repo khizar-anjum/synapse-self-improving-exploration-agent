@@ -6,6 +6,7 @@ import {
   getDatasetMetadata,
   getDatasetMetadataById,
   saveDatasetMetadata,
+  saveDatasetMetadataById,
   createSession,
   getSession,
   updateSessionHistory,
@@ -63,34 +64,51 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       return res.json(schema);
     }
 
-    // POST /api/connect - Connect to a dataset/table and start session
+    // POST /api/connect - Connect to a full dataset (all tables) and start session
     if (path === '/connect' && method === 'POST') {
-      const { datasetId, tableId, businessContext } = req.body;
+      const { datasetId, businessContext } = req.body;
 
-      // Get schema
-      const schemaResult = await getTableSchema(datasetId, tableId);
-      if (!schemaResult.success) {
-        return res.status(400).json({ error: schemaResult.error });
+      // Get all tables in the dataset
+      const tables = await listTables(datasetId);
+      if (tables.length === 0) {
+        return res.status(400).json({ error: 'No tables found in dataset' });
       }
 
-      // Get or create metadata
-      let metadata = await getDatasetMetadata(datasetId, tableId);
+      // Get schema for each table
+      const tableSchemas = [];
+      for (const table of tables) {
+        const schemaResult = await getTableSchema(datasetId, table.id);
+        if (schemaResult.success) {
+          tableSchemas.push({
+            tableName: table.id,
+            type: table.type,
+            schema: schemaResult.schema,
+            rowCount: schemaResult.numRows,
+            description: schemaResult.description,
+          });
+        }
+      }
+
+      // Get or create metadata for the entire dataset
+      let metadata = await getDatasetMetadataById(datasetId);
 
       if (!metadata) {
         metadata = {
-          name: tableId,
-          description: `Table ${tableId}`,
+          name: datasetId,
+          description: `Dataset ${datasetId} with ${tableSchemas.length} tables`,
           projectId: config.projectId,
           datasetId,
-          tableId,
-          schema: schemaResult.schema,
+          tables: tableSchemas,
           businessContext: businessContext || '',
           knownPatterns: [],
           commonMistakes: [],
         };
 
-        await saveDatasetMetadata(datasetId, tableId, metadata);
-        metadata = await getDatasetMetadata(datasetId, tableId);
+        await saveDatasetMetadataById(datasetId, metadata);
+        metadata = await getDatasetMetadataById(datasetId);
+      } else {
+        // Update tables info if metadata exists
+        metadata.tables = tableSchemas;
       }
 
       // Create session
@@ -99,8 +117,7 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
       return res.json({
         sessionId,
         datasetId: metadata.id,
-        schema: schemaResult.schema,
-        rowCount: schemaResult.numRows,
+        tables: tableSchemas,
       });
     }
 

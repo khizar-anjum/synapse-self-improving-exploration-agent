@@ -35,6 +35,18 @@ export async function getDatasetMetadataById(docId) {
 }
 
 /**
+ * Save dataset metadata directly by document ID
+ */
+export async function saveDatasetMetadataById(docId, metadata) {
+  await db.collection('datasets').doc(docId).set({
+    ...metadata,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return docId;
+}
+
+/**
  * Save dataset metadata
  */
 export async function saveDatasetMetadata(datasetId, tableId, metadata) {

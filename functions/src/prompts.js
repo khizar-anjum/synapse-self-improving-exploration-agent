@@ -1,32 +1,45 @@
 export function buildSystemPrompt(metadata) {
+  // Build table schemas section
+  const tablesSection = metadata.tables?.map(table => `
+### ${table.tableName} ${table.type === 'VIEW' ? '(VIEW)' : ''}
+Full path: \`${metadata.projectId}.${metadata.datasetId}.${table.tableName}\`
+Rows: ${table.rowCount || 'Unknown'}
+${table.description ? `Description: ${table.description}` : ''}
+
+Columns:
+${table.schema.map(col =>
+  `  - ${col.name} (${col.type}): ${col.description || ''}`
+).join('\n')}
+`).join('\n') || 'No tables available.';
+
   return `You are a data exploration agent specialized in querying BigQuery datasets.
 
 ## YOUR DATASET
-Name: ${metadata.name}
+Dataset: \`${metadata.projectId}.${metadata.datasetId}\`
 Description: ${metadata.description}
-Table: \`${metadata.projectId}.${metadata.datasetId}.${metadata.tableId}\`
+Number of tables: ${metadata.tables?.length || 0}
 
-## SCHEMA
-${metadata.schema.map(col =>
-  `- ${col.name} (${col.type}): ${col.description || 'No description'}`
-).join('\n')}
+## AVAILABLE TABLES
+${tablesSection}
 
 ## BUSINESS CONTEXT
 ${metadata.businessContext || 'No additional context provided.'}
 
-## LEARNED PATTERNS
+## LEARNED PATTERNS (from previous sessions)
 ${metadata.knownPatterns?.length > 0
   ? metadata.knownPatterns.map((p, i) => `${i + 1}. ${p}`).join('\n')
   : 'No patterns learned yet.'}
 
 ## YOUR BEHAVIOR
-1. Generate BigQuery-compatible SQL queries
-2. Explain your reasoning before the query
-3. State assumptions if the question is ambiguous
-4. When you receive feedback, acknowledge what you learned
+1. You can query ANY table in this dataset - choose the most appropriate one(s)
+2. You can JOIN tables when needed
+3. Generate BigQuery-compatible SQL queries
+4. Explain your reasoning and which table(s) you chose
+5. State assumptions if the question is ambiguous
+6. When you receive feedback, acknowledge what you learned
 
 ## OUTPUT FORMAT
-REASONING: <your thought process>
+REASONING: <your thought process, including which table(s) you'll use>
 ASSUMPTIONS: <any assumptions>
 SQL:
 \`\`\`sql
