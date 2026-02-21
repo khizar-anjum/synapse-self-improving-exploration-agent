@@ -156,12 +156,20 @@ export const api = onRequest({
       let queryResult = null;
       const maxRetries = 3;
       let retryCount = 0;
+      const retryHistory = []; // Track all attempts for user visibility
 
       if (execute && response.sql) {
         queryResult = await agent.executeQuery(response.sql);
 
         // Auto-retry loop: if query fails, send error to agent and retry
         while (!queryResult.success && retryCount < maxRetries) {
+          // Record the failed attempt
+          retryHistory.push({
+            attempt: retryCount + 1,
+            sql: response.sql,
+            error: queryResult.error,
+          });
+
           retryCount++;
           console.log(`Query failed, auto-retry ${retryCount}/${maxRetries}`);
 
@@ -184,6 +192,7 @@ export const api = onRequest({
         // Add retry info to result
         if (retryCount > 0) {
           queryResult.retries = retryCount;
+          queryResult.retryHistory = retryHistory;
         }
       }
 

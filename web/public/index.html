@@ -1042,6 +1042,16 @@
         }
 
         let content = '';
+
+        // Show retry history if there were retries
+        if (data.queryResult?.retryHistory?.length > 0) {
+          content += `> **Auto-corrected ${data.queryResult.retries} error(s)**\n\n`;
+          for (const retry of data.queryResult.retryHistory) {
+            content += `> **Attempt ${retry.attempt} failed:** ${retry.error}\n\n`;
+          }
+          content += `---\n\n`;
+        }
+
         if (data.reasoning) content += `**Reasoning:** ${data.reasoning}\n\n`;
         if (data.sql) content += `\`\`\`sql\n${data.sql}\n\`\`\`\n\n`;
         if (data.explanation) content += data.explanation;

@@ -90,6 +90,6 @@ Respond in JSON:
   ]
 }
 
-Only include learnings with confidence >= 0.85.
+Only include learnings with confidence >= 0.7.
 `;
 }
