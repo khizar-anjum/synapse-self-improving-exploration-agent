@@ -14,6 +14,7 @@ import {
   saveLearning,
   getPendingLearnings,
   getAllLearnings,
+  deleteAllLearnings,
   updateLearningStatus,
   applyLearningToDataset,
 } from './firestore.js';
@@ -276,6 +277,13 @@ export const api = onRequest({
       const { datasetId } = req.query;
       const learnings = await getAllLearnings(datasetId);
       return res.json({ learnings });
+    }
+
+    // DELETE /api/learnings?datasetId=X - Delete all learnings for a dataset
+    if (path === '/learnings' && method === 'DELETE') {
+      const { datasetId } = req.query;
+      const count = await deleteAllLearnings(datasetId);
+      return res.json({ success: true, deleted: count });
     }
 
     // POST /api/learnings/:id/approve - Approve a learning

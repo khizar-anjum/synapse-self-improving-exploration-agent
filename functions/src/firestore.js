@@ -144,6 +144,35 @@ export async function updateLearningStatus(learningId, status) {
 }
 
 /**
+ * Delete all learnings for a dataset and clear patterns from metadata
+ */
+export async function deleteAllLearnings(datasetDocId) {
+  // Delete all learning documents
+  const snapshot = await db.collection('learnings')
+    .where('datasetId', '==', datasetDocId)
+    .get();
+
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+  if (snapshot.docs.length > 0) {
+    await batch.commit();
+  }
+
+  // Also clear knownPatterns and commonMistakes from dataset metadata (if exists)
+  const datasetRef = db.collection('datasets').doc(datasetDocId);
+  const datasetDoc = await datasetRef.get();
+  if (datasetDoc.exists) {
+    await datasetRef.update({
+      knownPatterns: [],
+      commonMistakes: [],
+    });
+  }
+
+  return snapshot.docs.length;
+}
+
+/**
  * Apply approved learning to dataset metadata
  */
 export async function applyLearningToDataset(learningId) {
